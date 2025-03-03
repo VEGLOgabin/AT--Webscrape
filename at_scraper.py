@@ -11,73 +11,9 @@ class ATPDFScraper:
         self.filepath = excel_path
         self.file1 = file1
         self.file2 = file2
-        self.df = pd.read_excel(self.filepath, sheet_name="Master")
-    
-    def extract_procuity_data(self, pdf_path):
-        """Extract product details from the ProCuity PDF."""
-        print(f"[cyan]Extracting ProCuity data from:[/cyan] {pdf_path}")
-        doc = fitz.open(pdf_path)
-        pdf_text = "\n".join([page.get_text("text") for page in doc])
-        doc.close()
-
-        try:
-            for page in doc:
-                text = page.get_text("text")  # Extract text from page
-                lines = text.split("\n")  # Split text into lines
-
-                extracted_text = []
-                table_data = []
-                is_table = False
-            start_description = pdf_text.split("Brilliance in a bed")[1]
-            description_text = start_description.split("L model")[0].strip()
-        except IndexError:
-            description_text = ""  # In case "Brilliance in a bed" or "L model" isn't found
-
-        
-        # Extract product details using regex
-        model_number = re.search(r"Model number\s*(\d+)", pdf_text)
-        width = re.search(r"Width\s*(\d+.*?cm)", pdf_text)
-        height = re.search(r"Height range.*?High:\s*(\d+.*?cm).*?Low:\s*(\d+.*?cm)", pdf_text, re.DOTALL)
-        volts = re.search(r"Volts:\s*(\d+-\d+ VAC)", pdf_text)
-        amps = re.search(r"Ampere rating:\s*(\d+A)", pdf_text)
-        hertz = re.search(r"Frequency:\s*(\d+/\d+ Hz)", pdf_text)
-        plug_type = re.search(r"Hospital grade plug:\s*(\d+ VAC, \d+ Hz, \d+A)", pdf_text)
-        weight = re.search(r"Safe working load\s*(\d+.*?kg)", pdf_text)
-        description_match = re.search(r"Brilliance in a bed(.*?)helping hospitals standardize their bed fleet and improve caregiver efficiencies.", pdf_text, re.DOTALL)
-        product_description = description_match.group(1).strip() if description_match else ""
-        # Assign extracted values
-        data =  {
-            "mfr website": "https://www.stryker.com",
-            "mfr name": "Stryker",
-            "model name": "ProCuity",
-            "mfr number": model_number.group(1) if model_number else "",
-            "product description": description_text,
-            "amps": amps.group(1) if amps else "",
-            "volts": volts.group(1) if volts else "",
-            "hertz": hertz.group(1) if hertz else "",
-            "plug_type": plug_type.group(1) if plug_type else "",
-            "weight": weight.group(1) if weight else "",
-            "height": f"High: {height.group(1)}, Low: {height.group(2)}" if height else "",
-            "width": width.group(1) if width else "",
-            "Specification Sheet (pdf)": os.path.basename(pdf_path),
-            "Product URL": "https://www.stryker.com"
-        }
-    
-        # Append new rows to DataFrame
-        new_df = pd.DataFrame([data])
-        self.df = pd.concat([self.df, new_df], ignore_index=True)
-        self.df.to_excel(self.output_filename, index=False, sheet_name="Master")
-        print("[green]Data extraction complete. File saved![/green]")
-    
-    def extract_sterilgard_data(self, pdf_path):
-        # Load the PDF
-        pdf_path = "SterilGARD-SGX04-Product-Specifications-RevE.pdf"
-        pdf = pdfplumber.open(pdf_path)
-
-        # Initialize a dictionary to store extracted data
-        data = {
+        self.data = {
             'mfr website': '',
-            'mfr name': 'Baker',
+            'mfr name': '',
             'model name': '',
             'mfr number': '',
             'unit cost': '',
@@ -108,7 +44,7 @@ class ATPDFScraper:
             'ada compliant (Y/N)': 'N',
             'green certification? (Y/N)': 'N',
             'antimicrobial coating (Y/N)': 'N',
-            'Specification Sheet (pdf)': pdf_path,
+            'Specification Sheet (pdf)': "",
             'Brochure (pdf)': '',
             'Manual/IFU (pdf)': '',
             'Product URL': '',
@@ -118,12 +54,73 @@ class ATPDFScraper:
             'Product Image (jpg)': '',
             'Notes': ''
         }
-        # Initialize a list to store data for all models
-        prod1 = data.copy()
-        prod2 = data.copy()
-        prod3 = data.copy()
+    
+    def extract_procuity_data(self, pdf_path):
+        """Extract product details from the ProCuity PDF."""
+        print(f"[cyan]Extracting ProCuity data from:[/cyan] {pdf_path}")
+        doc = fitz.open(pdf_path)
+        pdf_text = "\n".join([page.get_text("text") for page in doc])
+        # doc.close()
 
-        # print(len(pdf.pages))
+        description_text = ""
+        others_text = []
+        page1_text = []
+        page2_text = []
+        prod = self.data.copy()
+
+        try:
+            if len(doc) == 2:
+                page1 = doc[0]
+                text1 = page1.get_text("text") 
+                lines1 = text1.split("\n")  
+                for line in lines1:
+                    line = line.strip()
+                    page1_text.append(line)
+                split_index = page1_text.index('iBed Wireless and Secure Connect ready')
+                description_text = "Brilliance in a bed"+ " "+ " ".join(page1_text[:split_index]).strip()
+                if description_text:
+                    prod["product description"] = description_text
+                others_text = " ".join(page1_text[split_index+1:]).strip()
+
+                page2 = doc[1]
+                text2 = page2.get_text("text") 
+                lines2 = text2.split("\n")  
+                for line in lines2:
+                    line = line.strip()
+                    page2_text.append(line)
+        except IndexError:
+            pass 
+
+        if page2_text:
+            prod["mfr name"] = "Stryker"
+            prod["model name"] = "ProCuity"
+            prod["mfr number"] = page2_text[2]
+            prod["width"] = page2_text[4].split("in")[0]
+            prod["height"] = page2_text[10].split("in")[0].replace("Low: ", "")
+            prod["volts"] = page2_text[-11].replace("VAC", "").replace("Volts: ", "")
+            prod["amps"] = page2_text[-9].replace("Ampere rating: ", "").replace("A", "")
+            prod["hertz"] = page2_text[-4].replace("Frequency: ", "").replace("Hz", "")
+            prod["plug_type"] = page2_text[-2].replace("Hospital grade plug: ", "")
+            prod["weight"] = page2_text[22].split('lbs')[0]
+            prod["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
+
+        # print(prod)
+        all_data = [prod]
+        df = pd.DataFrame(all_data)
+        df.to_excel("output/2020_ProCuity_All_Models_Extracted_Data.xlsx", index=False)
+
+    
+    def extract_sterilgard_data(self, pdf_path):
+        pdf = pdfplumber.open(pdf_path)
+        prod1 = self.data.copy()
+        prod2 = self.data.copy()
+        prod3 = self.data.copy()
+        prod1["mfr name"]= "Baker"
+        prod2["mfr name"]= "Baker"
+        prod3["mfr name"]= "Baker"
+        prod1["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
+        prod2["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
+        prod3["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
         pages_length = len(pdf.pages)
         if pages_length == 9:
             pages = pdf.pages
@@ -200,25 +197,16 @@ class ATPDFScraper:
             page5 = pages[4]
             if page4:
                 page5_table = page5.extract_table()
-                # print(page5_table)
                 prod1["btu "] = str(page5_table[22][1]).replace("Btu/Hr", "")
                 prod2["btu "] = str(page5_table[22][3]).replace("Btu/Hr", "")
                 prod3["btu "] = str(page5_table[22][4]).replace("Btu/Hr", "")
-            
-
         all_data = [prod1, prod2, prod3]
-        # # Create a DataFrame for all models
         df = pd.DataFrame(all_data)
-
-        # Save to Excel
         df.to_excel("output/SterilGARD_SGX04_All_Models_Extracted_Data.xlsx", index=False)
-
-        # print("Data for all models extracted and saved to Excel.")
 
     def run(self):
         """Main function to extract product details and save them to an Excel file."""
         pdf_files = [(self.file1, self.extract_procuity_data), (self.file2, self.extract_sterilgard_data)]
-        new_rows = []
         
         for pdf, extractor in pdf_files:
             pdf_path = os.path.join(os.getcwd(), pdf)
@@ -227,13 +215,6 @@ class ATPDFScraper:
                 
             else:
                 print(f"[red]File not found:[/red] {pdf_path}")
-
-        # Append new rows to DataFrame
-        new_df = pd.DataFrame(new_rows)
-        self.df = pd.concat([self.df, new_df], ignore_index=True)
-        self.df.to_excel(self.output_filename, index=False, sheet_name="Master")
-        print("[green]Data extraction complete. File saved![/green]")
-
 
 # ---------------------------------------- RUN THE CODE ----------------------------------------
 if __name__ == "__main__":
