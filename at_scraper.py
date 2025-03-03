@@ -28,7 +28,7 @@ class ATPDFScraper:
             'dedicated_circuit Required (Y/N)': 'Y',
             'tech_conect Required': '',
             'btu ': '',
-            'dissipation_type': '',
+            'dissipation_type': 'Air',
             'water_cold Required (Y/N)': 'N',
             'water_hot  Required (Y/N)': 'N',
             'drain Required (Y/N)': 'N',
@@ -59,14 +59,22 @@ class ATPDFScraper:
         """Extract product details from the ProCuity PDF."""
         print(f"[cyan]Extracting ProCuity data from:[/cyan] {pdf_path}")
         doc = fitz.open(pdf_path)
-        pdf_text = "\n".join([page.get_text("text") for page in doc])
-        # doc.close()
-
         description_text = ""
         others_text = []
         page1_text = []
         page2_text = []
         prod = self.data.copy()
+        page = doc[0]
+        images = page.get_images(full=True)
+        img = images[-1]
+        xref = img[0]  
+        base_image = doc.extract_image(xref)  
+        image_bytes = base_image["image"]
+        image_filename = f"output/ProCuityIMG/prod_img.{base_image['ext']}"
+        with open(image_filename, "wb") as image_file:
+            image_file.write(image_bytes)
+
+        prod["Product Image (jpg)"] = image_filename 
 
         try:
             if len(doc) == 2:
@@ -89,7 +97,7 @@ class ATPDFScraper:
                     line = line.strip()
                     page2_text.append(line)
         except IndexError:
-            pass 
+            pass  
 
         if page2_text:
             prod["mfr name"] = "Stryker"
@@ -111,6 +119,20 @@ class ATPDFScraper:
 
     
     def extract_sterilgard_data(self, pdf_path):
+
+        doc = fitz.open(pdf_path)
+        page = doc[0]
+        images = page.get_images(full=True)
+        img = images[0]
+        xref = img[0]  
+        base_image = doc.extract_image(xref)  
+        image_bytes = base_image["image"]
+        image_filename = f"output/SterilGARD/prod_img.{base_image['ext']}"
+        with open(image_filename, "wb") as image_file:
+            image_file.write(image_bytes)
+
+
+
         pdf = pdfplumber.open(pdf_path)
         prod1 = self.data.copy()
         prod2 = self.data.copy()
@@ -121,6 +143,12 @@ class ATPDFScraper:
         prod1["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
         prod2["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
         prod3["Specification Sheet (pdf)"] = os.path.basename(pdf_path)
+
+
+        prod1["Product Image (jpg)"] = image_filename
+        prod2["Product Image (jpg)"] = image_filename
+        prod3["Product Image (jpg)"] = image_filename
+
         pages_length = len(pdf.pages)
         if pages_length == 9:
             pages = pdf.pages
@@ -197,6 +225,7 @@ class ATPDFScraper:
             page5 = pages[4]
             if page4:
                 page5_table = page5.extract_table()
+                # print(page5_table)
                 prod1["btu "] = str(page5_table[22][1]).replace("Btu/Hr", "")
                 prod2["btu "] = str(page5_table[22][3]).replace("Btu/Hr", "")
                 prod3["btu "] = str(page5_table[22][4]).replace("Btu/Hr", "")
@@ -212,14 +241,21 @@ class ATPDFScraper:
             pdf_path = os.path.join(os.getcwd(), pdf)
             if os.path.exists(pdf_path):
                 extractor(pdf_path)
+                print(f"[green]Data scraped successfully from [/green] {pdf_path}")
                 
             else:
                 print(f"[red]File not found:[/red] {pdf_path}")
+        
+        
+
+
 
 # ---------------------------------------- RUN THE CODE ----------------------------------------
 if __name__ == "__main__":
     output_dir = 'output'
     os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir + "/ProCuityIMG", exist_ok=True)
+    os.makedirs(output_dir + "/SterilGARD", exist_ok=True)
     scraper = ATPDFScraper(
         excel_path="AT -WebScrape Content Template (Master).xlsx",
         file1="utilities/2020 ProCuity Spec Sheet JB Mkt Lit 2077 07 OCT 2020 REV C 1.pdf",
