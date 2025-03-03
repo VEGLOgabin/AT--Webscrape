@@ -7,11 +7,10 @@ import pdfplumber
 
 class ATPDFScraper:
     """Web scraper for extracting product details from PDFs."""
-    def __init__(self, excel_path: str, file1: str, file2: str, output_filename: str):
+    def __init__(self, excel_path: str, file1: str, file2: str):
         self.filepath = excel_path
         self.file1 = file1
         self.file2 = file2
-        self.output_filename = output_filename
         self.df = pd.read_excel(self.filepath, sheet_name="Master")
     
     def extract_procuity_data(self, pdf_path):
@@ -47,7 +46,7 @@ class ATPDFScraper:
         description_match = re.search(r"Brilliance in a bed(.*?)helping hospitals standardize their bed fleet and improve caregiver efficiencies.", pdf_text, re.DOTALL)
         product_description = description_match.group(1).strip() if description_match else ""
         # Assign extracted values
-        return {
+        data =  {
             "mfr website": "https://www.stryker.com",
             "mfr name": "Stryker",
             "model name": "ProCuity",
@@ -63,6 +62,12 @@ class ATPDFScraper:
             "Specification Sheet (pdf)": os.path.basename(pdf_path),
             "Product URL": "https://www.stryker.com"
         }
+    
+        # Append new rows to DataFrame
+        new_df = pd.DataFrame([data])
+        self.df = pd.concat([self.df, new_df], ignore_index=True)
+        self.df.to_excel(self.output_filename, index=False, sheet_name="Master")
+        print("[green]Data extraction complete. File saved![/green]")
     
     def extract_sterilgard_data(self, pdf_path):
         # Load the PDF
@@ -218,8 +223,8 @@ class ATPDFScraper:
         for pdf, extractor in pdf_files:
             pdf_path = os.path.join(os.getcwd(), pdf)
             if os.path.exists(pdf_path):
-                product_data = extractor(pdf_path)
-                new_rows.append(product_data)
+                extractor(pdf_path)
+                
             else:
                 print(f"[red]File not found:[/red] {pdf_path}")
 
