@@ -222,7 +222,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     scraper = ATPDFScraper(
         excel_path="AT -WebScrape Content Template (Master).xlsx",
-        file1="2020 ProCuity Spec Sheet JB Mkt Lit 2077 07 OCT 2020 REV C 1.pdf",
-        file2="SterilGARD-SGX04-Product-Specifications-RevE.pdf",
+        file1="utilities/2020 ProCuity Spec Sheet JB Mkt Lit 2077 07 OCT 2020 REV C 1.pdf",
+        file2="utilities/SterilGARD-SGX04-Product-Specifications-RevE.pdf",
     )
     scraper.run()
