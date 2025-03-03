@@ -3,6 +3,7 @@ import pandas as pd
 import fitz
 import re
 from rich import print
+import pdfplumber
 
 class ATPDFScraper:
     """Web scraper for extracting product details from PDFs."""
@@ -64,39 +65,150 @@ class ATPDFScraper:
         }
     
     def extract_sterilgard_data(self, pdf_path):
-        """Extract product details from the SterilGARD SGX04 PDF."""
-        print(f"[cyan]Extracting SterilGARD data from:[/cyan] {pdf_path}")
-        doc = fitz.open(pdf_path)
-        pdf_text = "\n".join([page.get_text("text") for page in doc])
-        doc.close()
+        # Load the PDF
+        pdf_path = "SterilGARD-SGX04-Product-Specifications-RevE.pdf"
+        pdf = pdfplumber.open(pdf_path)
 
-        # Extract product details using regex
-        model_number = re.search(r"MODEL\s*(SG\d+)", pdf_text)
-        width = re.search(r"Nominal Size\s*(\d+.*?Meters)", pdf_text)
-        height = re.search(r"Cabinet Height\s*(\d+.*?mm)", pdf_text)
-        volts = re.search(r"Service Requirements.*?(\d+ V AC)", pdf_text, re.DOTALL)
-        amps = re.search(r"(\d+ A), 50/60 Hz", pdf_text)
-        hertz = "50/60 Hz"
-        plug_type = "Listed plug for destination country"
-        weight = re.search(r"Weight.*?(\d+ Kg)", pdf_text)
-
-        # Assign extracted values
-        return {
-            "mfr website": "https://www.bakerco.com",
-            "mfr name": "Baker",
-            "model name": "SterilGARD SGX04",
-            "mfr number": model_number.group(1) if model_number else "",
-            "product description": "SterilGARD SGX04 Class II, Type A2 Biosafety Cabinet.",
-            "amps": amps.group(1) if amps else "",
-            "volts": volts.group(1) if volts else "",
-            "hertz": hertz,
-            "plug_type": plug_type,
-            "weight": weight.group(1) if weight else "",
-            "height": height.group(1) if height else "",
-            "width": width.group(1) if width else "",
-            "Specification Sheet (pdf)": os.path.basename(pdf_path),
-            "Product URL": "https://www.bakerco.com"
+        # Initialize a dictionary to store extracted data
+        data = {
+            'mfr website': '',
+            'mfr name': 'Baker',
+            'model name': '',
+            'mfr number': '',
+            'unit cost': '',
+            'product description': '',
+            'amps': '',
+            'volts': '',
+            'watts': '',
+            'phase': '',
+            'hertz': '',
+            'plug_type': '',
+            'emergency_power Required (Y/N)': 'N',
+            'dedicated_circuit Required (Y/N)': 'Y',
+            'tech_conect Required': '',
+            'btu ': '',
+            'dissipation_type': 'Air',
+            'water_cold Required (Y/N)': 'N',
+            'water_hot  Required (Y/N)': 'N',
+            'drain Required (Y/N)': 'N',
+            'water_treated (Y/N)': 'N',
+            'steam  Required(Y/N)': 'N',
+            'vent  Required (Y/N)': 'Y',
+            'vacuum Required (Y/N)': 'N',
+            'ship_weight': '',
+            'weight': '',
+            'depth': '',
+            'height': '',
+            'width': '',
+            'ada compliant (Y/N)': 'N',
+            'green certification? (Y/N)': 'N',
+            'antimicrobial coating (Y/N)': 'N',
+            'Specification Sheet (pdf)': pdf_path,
+            'Brochure (pdf)': '',
+            'Manual/IFU (pdf)': '',
+            'Product URL': '',
+            'CAD (dwg)': '',
+            'REVIT (rfa)': '',
+            'Seismic document': '',
+            'Product Image (jpg)': '',
+            'Notes': ''
         }
+        # Initialize a list to store data for all models
+        prod1 = data.copy()
+        prod2 = data.copy()
+        prod3 = data.copy()
+
+        # print(len(pdf.pages))
+        pages_length = len(pdf.pages)
+        if pages_length == 9:
+            pages = pdf.pages
+            page1 = pages[0]
+            if page1:
+                text1 = page1.extract_text()
+                page1_text = []
+                lines1 = text1.split("\n")  
+                for line in lines1:
+                        line = line.strip()
+                        page1_text.append(line)
+                # print(page1_text)
+                prod_descrip = page1_text[2] + " " + page1_text[3]
+                prod1["product description"] = prod_descrip
+                prod2["product description"] = prod_descrip
+                prod3['product description'] = prod_descrip
+
+            page2 = pages[1]
+            if page2:
+                page2_table = page2.extract_table()
+                # print(page2_table)
+                prod1['mfr number'] = page2_table[0][2]
+                prod2['mfr number'] = page2_table[0][4]
+                prod3['mfr number'] = page2_table[0][5]
+
+                # Extract dimensions and weights for SG404
+                prod1["width"] = int(page2_table[3][2].split("[")[-1].strip("[]").split("x")[0].replace(",",""))* 0.0393701
+                prod1["depth"] = int(page2_table[3][2].split("[")[-1].strip("[]").split("x")[1].replace(",","").replace("mm", ""))* 0.0393701  
+                prod1["height"] = int(page2_table[4][2].split("[")[1].split("]")[0].strip("[]").replace(",","").replace("mm", ""))* 0.0393701
+                prod1["weight"] = page2_table[7][2].split("lbs")[0].strip() 
+                prod1["ship_weight"] = page2_table[12][2].split("lbs")[0].strip() 
+                # print(prod1["ship_weight"]) 
+
+                # Extract dimensions and weights for SG504
+                prod2["width"] = int(page2_table[3][4].split("[")[-1].strip("[]").split("x")[0].replace(",",""))* 0.0393701 
+                prod2["depth"] = int(page2_table[3][4].split("[")[-1].strip("[]").split("x")[1].replace(",","").replace("mm", ""))* 0.0393701    
+                prod2["height"] = int(page2_table[4][4].split("[")[1].split("]")[0].strip("[]").replace(",","").replace("mm", ""))* 0.0393701 
+                prod2["weight"] = page2_table[7][4].split("lbs")[0].strip()   
+                prod2["ship_weight"] = page2_table[12][4].split("lbs")[0].strip() 
+
+                # Extract dimensions and weights for SG604
+                prod3["width"] = int(page2_table[3][5].split("[")[-1].strip("[]").split("x")[0].replace(",",""))* 0.0393701
+                prod3["depth"] = int(page2_table[3][5].split("[")[-1].strip("[]").split("x")[1].replace(",","").replace("mm", ""))* 0.0393701      
+                prod3["height"] = int(page2_table[4][5].split("[")[1].split("]")[0].strip("[]").replace(",","").replace("mm", ""))* 0.0393701  
+                prod3["weight"] = page2_table[7][5].split("lbs")[0].strip()   
+                prod3["ship_weight"] = page2_table[12][5].split("lbs")[0].strip()  
+
+            page4 = pages[3]
+            if page4:
+                page4_table = page4.extract_table()
+                volt_amps_hetz_phase = page4_table[2][2]
+                volt_amps_hetz_phase = volt_amps_hetz_phase.split(",")
+                volts = volt_amps_hetz_phase[0].split("V")[0]
+                amps = volt_amps_hetz_phase[1].replace("A","")
+                hetz = volt_amps_hetz_phase[2].replace("Hz", "")
+                phase = volt_amps_hetz_phase[3]
+                prod1['volts'] = volts
+                prod2["volts"] = volts
+                prod3["volts"] = volts
+
+                prod1["amps"] =  amps
+                prod2["amps"] =  amps
+                prod3["amps"] =  amps
+
+                prod1["hertz"] = hetz
+                prod2["hertz"] = hetz
+                prod3["hertz"] = hetz
+
+                prod1['phase'] = phase
+                prod2['phase'] = phase
+                prod3['phase'] = phase
+                
+
+            page5 = pages[4]
+            if page4:
+                page5_table = page5.extract_table()
+                # print(page5_table)
+                prod1["btu "] = str(page5_table[22][1]).replace("Btu/Hr", "")
+                prod2["btu "] = str(page5_table[22][3]).replace("Btu/Hr", "")
+                prod3["btu "] = str(page5_table[22][4]).replace("Btu/Hr", "")
+            
+
+        all_data = [prod1, prod2, prod3]
+        # # Create a DataFrame for all models
+        df = pd.DataFrame(all_data)
+
+        # Save to Excel
+        df.to_excel("SterilGARD_SGX04_All_Models_Extracted_Data.xlsx", index=False)
+
+        # print("Data for all models extracted and saved to Excel.")
 
     def run(self):
         """Main function to extract product details and save them to an Excel file."""
