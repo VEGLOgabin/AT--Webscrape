@@ -206,7 +206,7 @@ class ATPDFScraper:
         df = pd.DataFrame(all_data)
 
         # Save to Excel
-        df.to_excel("SterilGARD_SGX04_All_Models_Extracted_Data.xlsx", index=False)
+        df.to_excel("output/SterilGARD_SGX04_All_Models_Extracted_Data.xlsx", index=False)
 
         # print("Data for all models extracted and saved to Excel.")
 
@@ -238,6 +238,5 @@ if __name__ == "__main__":
         excel_path="AT -WebScrape Content Template (Master).xlsx",
         file1="2020 ProCuity Spec Sheet JB Mkt Lit 2077 07 OCT 2020 REV C 1.pdf",
         file2="SterilGARD-SGX04-Product-Specifications-RevE.pdf",
-        output_filename="output/AT-Scrape-output.xlsx",
     )
     scraper.run()
