@@ -28,7 +28,7 @@ class ATPDFScraper:
             'dedicated_circuit Required (Y/N)': 'Y',
             'tech_conect Required': '',
             'btu ': '',
-            'dissipation_type': 'Air',
+            'dissipation_type': '',
             'water_cold Required (Y/N)': 'N',
             'water_hot  Required (Y/N)': 'N',
             'drain Required (Y/N)': 'N',
